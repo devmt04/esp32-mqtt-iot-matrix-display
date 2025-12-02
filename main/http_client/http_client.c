@@ -105,15 +105,68 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void http_get_datetime(){
+void http_get_datetime(void){
     // To be implemented
 }
 
-void http_get_weather(){
-    // To be implemented
+int http_get_weather(void){
+    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
+    esp_http_client_config_t config = {
+        .url = "http://weather.indianapi.in/global/current?location=Jalandhar",
+        .event_handler = _http_event_handler,
+        .user_data = local_response_buffer,
+        .disable_auto_redirect = true,
+        .timeout_ms = 30000
+        //.skip_cert_common_name_check = true,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    esp_http_client_set_header(client, "x-api-key", "sk-live-7OgGLEboyGmsEqzppGiNFyyF2pLmzgU9636OGTH5");
+
+    // GET
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %"PRId64,
+                esp_http_client_get_status_code(client),
+                esp_http_client_get_content_length(client));
+    } else {
+        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
+    }
+
+    cJSON *root = cJSON_Parse(local_response_buffer);
+    if (!root) {
+        ESP_LOGE(TAG, "JSON Parse Error! Raw response: %s", local_response_buffer);
+        esp_http_client_cleanup(client);
+        return -1;
+    }
+
+    if (!cJSON_IsObject(root)) {
+        ESP_LOGE(TAG, "JSON is not an object");
+        cJSON_Delete(root);
+        esp_http_client_cleanup(client);
+        return -1;
+    }
+
+    cJSON *item = cJSON_GetObjectItem(root, "temperature");
+    if (!item || !cJSON_IsNumber(item)) {
+        ESP_LOGE(TAG, "JSON array['temperature'] is not a valid number");
+        cJSON_Delete(root);
+        esp_http_client_cleanup(client);
+        return -1;
+    }
+
+    int temp = item->valueint;
+    ESP_LOGI(TAG, "Parsed word: %d", temp);
+
+    // Free JSON tree and client
+    cJSON_Delete(root);
+    esp_http_client_cleanup(client);
+
+    return temp;
 }
 
-void http_get_class_info(){
+void http_get_class_info(void){
     // To be implemented
 }
 

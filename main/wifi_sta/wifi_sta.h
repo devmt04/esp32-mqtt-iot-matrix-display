@@ -9,7 +9,7 @@
 #define WIFI_SSID      "Mohit" // iPhone Hotspot
 #define WIFI_PASS      "12345678"
 
-#define EXAMPLE_ESP_MAXIMUM_RETRY 5
+#define WIFI_MAXIMUM_RETRY 0 // 0 for infinite retries
 
 esp_err_t wifi_init_sta(void);
 

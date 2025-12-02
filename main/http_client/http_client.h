@@ -5,8 +5,8 @@
 
 char *init_http_client(void);
 
-void http_get_datetime();
-void http_get_weather();
-void http_get_class_info();
+void http_get_datetime(void);
+int http_get_weather(void);
+void http_get_class_info(void);
 
 #endif

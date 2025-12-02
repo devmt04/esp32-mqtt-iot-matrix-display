@@ -9,5 +9,11 @@
   "idf.port": "/dev/ttyUSB0",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32s3"
+  },
+  "files.associations": {
+    "sntp.h": "c",
+    "cjson.h": "c",
+    "esp_tls.h": "c",
+    "http_client.h": "c"
   }
 }

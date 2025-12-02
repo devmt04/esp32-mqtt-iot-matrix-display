@@ -8,7 +8,7 @@
 #include "soc/soc_caps.h"
 #include <string.h>
 
-#define NUM_MODULES 4  
+#define NUM_MODULES 8  
 
 #define CS_LOW()  gpio_set_level(CS_PIN, 0)
 #define CS_HIGH() gpio_set_level(CS_PIN, 1)
@@ -47,6 +47,7 @@ void max7219_send_all(uint8_t reg, uint8_t data)
     CS_LOW();
     spi_device_polling_transmit(spi, &t);
     CS_HIGH();
+    esp_rom_delay_us(2); // Small delay to ensure data is latched
 }
 
 void max7219_send(int module, uint8_t reg, uint8_t data)
@@ -65,12 +66,14 @@ void max7219_send(int module, uint8_t reg, uint8_t data)
 
     spi_transaction_t t = {
         .length = NUM_MODULES * 16,
-        .tx_buffer = buf
+        .tx_buffer = buf,
+        // .tx_length = 0
     };
 
     CS_LOW();
     spi_device_polling_transmit(spi, &t);
     CS_HIGH();
+    esp_rom_delay_us(2); // Small delay to ensure data is latched
 }
 
 static void max7219_basic_init()
@@ -194,18 +197,7 @@ static void test_pattern(char *d)
 
     // drawClear_all();
     // drawChar_4x4(0, 'L', 0);
-    // drawChar_4x4(0, 'O', 1);
-    // drawChar_4x4(1, 'O', 2);
-    // drawChar_4x4(1, 'E', 1);
-    // drawChar_4x4(2, 'V', 1);
-    
-    // drawChar_4x4(3, 'E', 3);
-    // drawChar_4x4(2, 'S', 1);
-    // drawChar_4x4(2, ' ', 0);
-    // drawChar_4x4(3, 'L', 0);
-    // drawChar_4x4(3, 'I', 1);
-    // drawChar_4x4(0, 'F', 2);
-    // drawChar_4x4(0, 'E', 3);
+ 
     // drawString_4x4("LOVE IS LIFE");
     drawString_8x8(d);
     // drawChar_8x8(1, 'V');
@@ -220,8 +212,123 @@ static void test_pattern(char *d)
 }
 
 
-void test_draw(char *d){
-    test_pattern(d);
+void test_draw(char *str){
+    // test_pattern(d);
+    // drawString_8x8(d);
+
+    char buffer[128];
+    strncpy(buffer, str, sizeof(buffer));
+    
+    drawClear_all();
+    int len = strlen(buffer);
+    drawChar_8x8(0, 'A');
+    drawChar_8x8(1, 'P');
+    drawChar_8x8(2, 'I');
+    drawChar_8x8(3, ':');
+    if(len <= 4){
+        for (int i = 0; i < len; i++){
+            drawChar_8x8(i+4, buffer[i]);
+        }
+    }
+    
+    // drawChar_4x4(0, 'L', 0);
+}
+
+static void draw_time(int hr0, int hr1, int min0, int min1){
+    uint8_t min_pattern[8] = {
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    };
+    uint8_t hr_pattern[8] = {
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    };
+
+    const uint8_t *min1_rows = weather_time_font7x3[min1].rows;
+    const uint8_t *min0_rows = weather_time_font7x3[min0].rows;
+    const uint8_t *hr1_rows  = weather_time_font7x3[hr1].rows;
+    const uint8_t *hr0_rows  = weather_time_font7x3[hr0].rows;
+
+    // Build minute pattern
+    for (int row = 0; row < 8; row++) {
+        uint8_t d1 = min1_rows[row] & 0b11100000;
+        uint8_t d0 = min0_rows[row] & 0b11100000;
+        min_pattern[row] = (d1 >> 5) | (d0 >> 1);
+    }
+
+    // Build hour pattern
+    for (int row = 0; row < 8; row++) {
+
+        uint8_t d0 = (hr0_rows[row] >> 5) & 0b111;   // hr0 (tens)
+        uint8_t d1 = (hr1_rows[row] >> 5) & 0b111;   // hr1 (ones)
+
+        hr_pattern[row] =
+            (d0 << 5)     // puts hr0 into bits 7..5
+            | (d1 << 1);    // puts hr1 into bits 3..1
+                        // bit 4 and bit 0 are empty "spaces"
+    }
+
+    // draw in 8x8
+    for (int row = 0; row < 8; row++) {
+        max7219_send(3, row + 1, min_pattern[row]);
+        max7219_send(2, row + 1, hr_pattern[row]);
+    }
+}
+
+static void draw_temp(int temp){
+    uint8_t temp_pattern[8] = {
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    };
+
+    const uint8_t *temp1_rows  = weather_time_font7x3[temp%10].rows;
+    const uint8_t *temp0_rows  = weather_time_font7x3[temp/10].rows;
+ 
+    for (int row = 0; row < 8; row++) {
+        uint8_t d0 = (temp0_rows[row] >> 5) & 0b111;   
+        uint8_t d1 = (temp1_rows[row] >> 5) & 0b111;   
+        temp_pattern[row] = (d0 << 5)  | (d1 << 1);                 
+    }
+
+     // draw in 8x8
+    for (int row = 0; row < 8; row++) {
+        max7219_send(1, row + 1, weather_time_font7x3[12].rows[row]);
+        max7219_send(0, row + 1, temp_pattern[row]);
+    }
+}
+
+void draw_time_weather(int temp, int hr, int min){
+    drawClear_all();
+    int hr_tens = hr / 10;
+    int hr_ones = hr % 10;
+    int min_tens = min / 10;
+    int min_ones = min % 10;
+    draw_time(hr_tens, hr_ones, min_tens, min_ones);
+    draw_temp(temp);
+
+    // draw MSG for Demo purposes
+
+    drawChar_8x8(4, 'M');
+    drawChar_8x8(5, 'S');
+    drawChar_8x8(6, 'G');
 }
 
 esp_err_t init_spi(){
