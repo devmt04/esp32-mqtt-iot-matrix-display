@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClassPlate Control Panel</title>
+    <style>
+  /* ----------------------------------------------------
+     RESET
+  ---------------------------------------------------- */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* ----------------------------------------------------
+     BODY
+  ---------------------------------------------------- */
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: #f4f5f7;
+    min-height: 100vh;
+    color: #1f2937;
+    padding: 20px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: #3b3f4a;
+    font-weight: 700;
+  }
+
+  /* ----------------------------------------------------
+     CONNECTION STATUS
+  ---------------------------------------------------- */
+  .connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 8px 16px;
+
+    background: #ffffff;
+    border: 1px solid #d6dae1;
+    border-radius: 20px;
+
+    font-size: 0.9rem;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #dc2626; /* red */
+  }
+
+  .status-dot.connected {
+    background: #16a34a; /* green */
+    box-shadow: 0 0 8px #16a34aaa;
+  }
+
+  /* ----------------------------------------------------
+     GRID
+  ---------------------------------------------------- */
+  .grid {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  }
+
+  /* ----------------------------------------------------
+     CARD
+  ---------------------------------------------------- */
+  .card {
+    background: #ffffff;
+    border-radius: 16px;
+
+    padding: 24px;
+
+    border: 1px solid #e3e6eb;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+
+    backdrop-filter: blur(10px);
+  }
+
+  .card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: #4f46e5;
+  }
+
+  /* ----------------------------------------------------
+     FORM ELEMENTS
+  ---------------------------------------------------- */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  input,
+  select {
+    width: 100%;
+    padding: 12px 16px;
+
+    background: #f8f9fb;
+    border: 1px solid #d2d6dd;
+    border-radius: 8px;
+
+    font-size: 1rem;
+    color: #374151;
+
+    transition: all 0.25s;
+  }
+
+  input:focus,
+  select:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.2);
+  }
+
+  input::placeholder {
+    color: #9ca3af;
+  }
+
+  /* ----------------------------------------------------
+     BUTTON
+  ---------------------------------------------------- */
+  button {
+    width: 100%;
+    padding: 14px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #4f46e5;
+    color: #fff;
+
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(79,70,229,0.3);
+  }
+
+  button:active {
+    transform: translateY(0);
+  }
+
+  /* ----------------------------------------------------
+     INTENSITY SLIDER
+  ---------------------------------------------------- */
+  .intensity-display {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .intensity-value {
+    min-width: 60px;
+    text-align: center;
+
+    font-size: 2rem;
+    font-weight: bold;
+    color: #4f46e5;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 8px;
+    padding: 0;
+
+    background: #e5e7eb;
+    border-radius: 4px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+
+    width: 22px;
+    height: 22px;
+
+    border-radius: 50%;
+    background: #4f46e5;
+
+    cursor: pointer;
+    border: 3px solid #fff;
+
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  }
+
+  /* ----------------------------------------------------
+     DEVICE LIST
+  ---------------------------------------------------- */
+  .devices-list {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .device-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 16px;
+    margin-bottom: 12px;
+
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e1e4ea;
+
+    transition: background 0.2s;
+  }
+
+  .device-item:hover {
+    background: #f0f2f5;
+  }
+
+  .device-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .device-status {
+    width: 12px;
+    height: 12px;
+
+    border-radius: 50%;
+    background: #dc2626;
+  }
+
+  .device-status.online {
+    background: #16a34a;
+    box-shadow: 0 0 8px #16a34aaa;
+
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%     { opacity: 0.5; }
+  }
+
+  .device-name {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .device-details {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .no-devices {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+  }
+
+  /* ----------------------------------------------------
+     QUICK MESSAGES
+  ---------------------------------------------------- */
+  .quick-messages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .quick-msg {
+    padding: 8px 12px;
+
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 20px;
+
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    transition: all 0.2s;
+  }
+
+  .quick-msg:hover {
+    background: #dbe3ff;
+    border-color: #4f46e5;
+  }
+
+  /* ----------------------------------------------------
+     TOAST
+  ---------------------------------------------------- */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+
+    padding: 16px 24px;
+
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 500;
+
+    border-radius: 8px;
+    opacity: 0;
+    transform: translateY(100px);
+    transition: all 0.3s;
+
+    z-index: 1000;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast.error {
+    background: #dc2626;
+  }
+
+  /* ----------------------------------------------------
+     MISC
+  ---------------------------------------------------- */
+  .broadcast-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .broadcast-toggle input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+</style>
+
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎛️ ClassPlate Control Panel</h1>
+        <div class="connection-status">
+          <span class="status-dot" id="wsStatus"></span>
+          <span id="wsStatusText">Disconnected</span>
+        </div>
+      </header>
+
+      <div class="grid">
+        <!-- Message Control -->
+        <div class="card">
+          <h2>📝 Message Control</h2>
+
+          <div class="broadcast-toggle">
+            <input type="checkbox" id="broadcastMsg" checked />
+            <label for="broadcastMsg" style="margin: 0"
+              >Broadcast to all devices</label
+            >
+          </div>
+
+          <div class="form-group" id="msgDeviceSelect" style="display: none">
+            <label>Select Device</label>
+            <select id="messageDevice">
+              <option value="">Select a device...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Message (max 32 chars)</label>
+            <input
+              type="text"
+              id="messageInput"
+              placeholder="Enter message..."
+              maxlength="32"
+            />
+          </div>
+
+          <div class="quick-messages">
+            <span class="quick-msg" onclick="setQuickMessage('HELLO')"
+              >HELLO</span
+            >
+            <span class="quick-msg" onclick="setQuickMessage('CLASS')"
+              >CLASS</span
+            >
+            <span class="quick-msg" onclick="setQuickMessage('BREAK')"
+              >BREAK</span
+            >
+            <span class="quick-msg" onclick="setQuickMessage('LUNCH')"
+              >LUNCH</span
+            >
+            <span class="quick-msg" onclick="setQuickMessage('BUSY')"
+              >BUSY</span
+            >
+            <span class="quick-msg" onclick="setQuickMessage('OPEN')"
+              >OPEN</span
+            >
+          </div>
+
+          <button onclick="sendMessage()">Send Message</button>
+        </div>
+
+        <!-- Intensity Control -->
+        <div class="card">
+          <h2>💡 LED Intensity</h2>
+
+          <div class="broadcast-toggle">
+            <input type="checkbox" id="broadcastInt" checked />
+            <label for="broadcastInt" style="margin: 0"
+              >Broadcast to all devices</label
+            >
+          </div>
+
+          <div class="form-group" id="intDeviceSelect" style="display: none">
+            <label>Select Device</label>
+            <select id="intensityDevice">
+              <option value="">Select a device...</option>
+            </select>
+          </div>
+
+          <div class="intensity-display">
+            <span class="intensity-value" id="intensityValue">8</span>
+            <input
+              type="range"
+              id="intensitySlider"
+              min="0"
+              max="15"
+              value="8"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Or enter value (0-15)</label>
+            <input
+              type="number"
+              id="intensityInput"
+              min="0"
+              max="15"
+              value="8"
+            />
+          </div>
+
+          <button onclick="sendIntensity()">Set Intensity</button>
+        </div>
+
+        <!-- Device List -->
+        <div class="card">
+          <h2>📱 Connected Devices</h2>
+          <div class="devices-list" id="devicesList">
+            <div class="no-devices">
+              <p>No devices connected</p>
+              <p style="margin-top: 8px; font-size: 0.85rem">
+                Waiting for ESP32 devices...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Status -->
+        <!-- <div class="card">
+          <h2>📊 System Status</h2>
+          <div class="form-group">
+            <label>MQTT Broker</label>
+            <input
+              type="text"
+              value="broker.hivemq.com:1883"
+              readonly
+              style="opacity: 0.7"
+            />
+          </div>
+          <div class="form-group">
+            <label>Topics</label>
+            <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.8">
+              <div>📤 Message: <code>classplate/message/{deviceId}</code></div>
+              <div>
+                💡 Intensity: <code>classplate/intensity/{deviceId}</code>
+              </div>
+              <div>📥 Status: <code>classplate/status/{deviceId}</code></div>
+              <div>
+                💓 Heartbeat: <code>classplate/heartbeat/{deviceId}</code>
+              </div>
+            </div>
+          </div>
+        </div> -->
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      let ws;
+      let devices = [];
+
+      // WebSocket connection
+      function connectWebSocket() {
+        ws = new WebSocket(`ws://${window.location.host}`);
+
+        ws.onopen = () => {
+          document.getElementById("wsStatus").classList.add("connected");
+          document.getElementById("wsStatusText").textContent = "Connected";
+        };
+
+        ws.onclose = () => {
+          document.getElementById("wsStatus").classList.remove("connected");
+          document.getElementById("wsStatusText").textContent = "Disconnected";
+          setTimeout(connectWebSocket, 3000);
+        };
+
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === "device_update") {
+            devices = data.devices;
+            updateDevicesList();
+            updateDeviceSelects();
+          }
+        };
+      }
+
+      function updateDevicesList() {
+        const container = document.getElementById("devicesList");
+
+        if (devices.length === 0) {
+          container.innerHTML = `
+                    <div class="no-devices">
+                        <p>No devices connected</p>
+                        <p style="margin-top: 8px; font-size: 0.85rem;">Waiting for ESP32 devices...</p>
+                    </div>
+                `;
+          return;
+        }
+
+        container.innerHTML = devices
+          .map(
+            (device) => `
+                <div class="device-item">
+                    <div class="device-info">
+                        <span class="device-status ${
+                          device.online ? "online" : ""
+                        }"></span>
+                        <div>
+                            <div class="device-name">${device.id}</div>
+                            <div class="device-details">
+                                ${device.online ? "Online" : "Offline"} 
+                                ${device.message ? `• "${device.message}"` : ""}
+                                ${
+                                  device.intensity !== undefined
+                                    ? `• Brightness: ${device.intensity}`
+                                    : ""
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      function updateDeviceSelects() {
+        const options = devices
+          .map(
+            (d) =>
+              `<option value="${d.id}">${d.id} ${
+                d.online ? "(Online)" : "(Offline)"
+              }</option>`
+          )
+          .join("");
+
+        document.getElementById("messageDevice").innerHTML =
+          '<option value="">Select a device...</option>' + options;
+        document.getElementById("intensityDevice").innerHTML =
+          '<option value="">Select a device...</option>' + options;
+      }
+
+      // Toggle device select visibility
+      document
+        .getElementById("broadcastMsg")
+        .addEventListener("change", (e) => {
+          document.getElementById("msgDeviceSelect").style.display = e.target
+            .checked
+            ? "none"
+            : "block";
+        });
+
+      document
+        .getElementById("broadcastInt")
+        .addEventListener("change", (e) => {
+          document.getElementById("intDeviceSelect").style.display = e.target
+            .checked
+            ? "none"
+            : "block";
+        });
+
+      // Intensity slider sync
+      document
+        .getElementById("intensitySlider")
+        .addEventListener("input", (e) => {
+          document.getElementById("intensityValue").textContent =
+            e.target.value;
+          document.getElementById("intensityInput").value = e.target.value;
+        });
+
+      document
+        .getElementById("intensityInput")
+        .addEventListener("input", (e) => {
+          let val = parseInt(e.target.value) || 0;
+          val = Math.max(0, Math.min(15, val));
+          document.getElementById("intensitySlider").value = val;
+          document.getElementById("intensityValue").textContent = val;
+        });
+
+      function setQuickMessage(msg) {
+        document.getElementById("messageInput").value = msg;
+      }
+
+      async function sendMessage() {
+        const message = document.getElementById("messageInput").value.trim();
+        const broadcast = document.getElementById("broadcastMsg").checked;
+        const deviceId = broadcast
+          ? null
+          : document.getElementById("messageDevice").value;
+
+        if (!message) {
+          showToast("Please enter a message", true);
+          return;
+        }
+
+        if (!broadcast && !deviceId) {
+          showToast("Please select a device", true);
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, deviceId }),
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Message sent: "${message}"`);
+          } else {
+            showToast(data.error, true);
+          }
+        } catch (err) {
+          showToast("Failed to send message", true);
+        }
+      }
+
+      async function sendIntensity() {
+        const intensity = parseInt(
+          document.getElementById("intensityInput").value
+        );
+        const broadcast = document.getElementById("broadcastInt").checked;
+        const deviceId = broadcast
+          ? null
+          : document.getElementById("intensityDevice").value;
+
+        if (!broadcast && !deviceId) {
+          showToast("Please select a device", true);
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/intensity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intensity, deviceId }),
+          });
+
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Intensity set to ${intensity}`);
+          } else {
+            showToast(data.error, true);
+          }
+        } catch (err) {
+          showToast("Failed to set intensity", true);
+        }
+      }
+
+      function showToast(message, isError = false) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.className = "toast" + (isError ? " error" : "");
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 3000);
+      }
+
+      // Initialize
+      connectWebSocket();
+    </script>
+  </body>
+</html>

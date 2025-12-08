@@ -10,13 +10,15 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "lwip/apps/sntp.h"
+#include <esp_netif_sntp.h>
+#include "freertos/semphr.h"
+#include "MQTT/MQTT.h"
 
 #include <string.h>
 #include <ctype.h>
-#include <esp_netif_sntp.h>
+// volatile bool g_new_msg = false;
 
-char g_msg[256];
-volatile bool g_new_msg = false;
+SemaphoreHandle_t mqtt_mutex;
 
 static void init_nvs_netif(void){
     esp_err_t ret = nvs_flash_init();
@@ -27,10 +29,11 @@ static void init_nvs_netif(void){
     ESP_ERROR_CHECK(ret);
 
     ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    // ESP_ERROR_CHECK(esp_event_loop_create_default());
 }
 
 static void init_ntp(void){
+    // ALSO IMPLIMENT AN EXTERNAL RTC
     esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
     setenv("TZ", "IST-5:30", 1);
     tzset();
@@ -101,11 +104,9 @@ static void push_col(uint8_t buf[32], uint8_t col, int buflen){
 
 
 static void display_msg_task(void *pvParameters){
-    const char *msg = "HELLO LPU! WE ARE CIRCUIT CRAFTERS.";
     // const char *msg = "ABCDFGHIJKLMNOPQRSTUVWXYZ.! ";
-    int msglen = strlen(msg);
-    int speed = 80;
-   // if msg not overflowed -> showed it statically
+ 
+    // if msg not overflowed -> showed it statically
         // if msg overflowed -> then
             // Algorithim 01:
                 // create a blank 8x32 sized buffer -> buf1
@@ -130,14 +131,31 @@ static void display_msg_task(void *pvParameters){
                         // new cbuf will bew allocated
                         // Now push blank 8x16 blank data into buf, to flush the text out
                         // continuing update buf similary
-                        
+
+    const char *msg = mqtt_msg.msg;
+    int msglen = strlen(msg);
+    int speed = 80;                    
     uint8_t buf[32] = {0};
-        
+    
     while (1) {
+        // Check for any update in mqtt_msg and then proceed
+        xSemaphoreTake(mqtt_mutex, portMAX_DELAY);
+        if(mqtt_data_update){
+            set_all_brightness(mqtt_msg.intensity);
+            strncpy(msg, mqtt_msg.msg, strlen(mqtt_msg.msg));
+            // strcpy(local_msg_buffer, mqtt_msg.msg);
+            // msg = local_msg_buffer;
+            msglen = strlen(msg);
+            mqtt_data_update = false;
+        }
         // draw charcters on buf, and then shift it
+        printf("---> intensity: %d", mqtt_msg.intensity);
+        xSemaphoreGive(mqtt_mutex);
+
         for(int i = 0; i<msglen; i++){
             char c = msg[i];
             uint8_t cbuf[5];
+            printf("--> %c\n", c);
             if(c == ' ') memcpy(cbuf, string_font6x5[26].rows, 5);
             else if(c == '!') memcpy(cbuf, string_font6x5[27].rows, 5);
             else if(c == '.') memcpy(cbuf, string_font6x5[28].rows, 5);
@@ -170,17 +188,16 @@ static void display_msg_task(void *pvParameters){
 static void engine_task(void *pvParameters){
     // init Network interface
     init_nvs_netif();
-
     // init SPI for MAX7219
     init_spi();
     // Draw on Display
     set_all_brightness(0x00); // 0x00 -> MIN, 0x0F -> MAX, 0x08 -> 50%
-    draw_init();  
+    draw_init();
 
     // init WiFi
     if(wifi_init_sta() != ESP_OK){
         ESP_LOGE("MAIN", "WiFi initialization unexpectedly Failed!");
-    }    
+    }
     
     int weather_counter = -1; // -1 as initial value to force first update
     ESP_LOGI("DISPLAY", "Starting display...");
@@ -192,6 +209,10 @@ static void engine_task(void *pvParameters){
     xTaskCreate(display_msg_task, "display_msg_task", 6144, NULL, 5, NULL);
     // xTaskCreate(fetch_msg_task, "fetch_msg_task", 1024, NULL, 5, NULL);
     init_ntp();
+
+    if(mqtt_init() != ESP_OK){
+        ESP_LOGE("MQTT", "Failed to initilize.");
+    }
 
     while(1){
         // Update Time(HH:MM) Update every 15 seconds
@@ -232,6 +253,8 @@ static void engine_task(void *pvParameters){
 }
 
 void app_main(void){
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    mqtt_mutex = xSemaphoreCreateMutex();
     xTaskCreate(engine_task, "engine_task", 8192, NULL, 5, NULL);
     vTaskDelay(pdMS_TO_TICKS(10));
 }

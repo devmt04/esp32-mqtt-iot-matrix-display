@@ -4,10 +4,11 @@
 #include "esp_http_client.h"
 
 #include "stdio.h"
-#include "http_client.h"
 #include "esp_tls.h"
-
 #include "cJSON.h"
+
+#include "http_client.h"
+#include "PVT.h"
 
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 2048
@@ -122,7 +123,7 @@ int http_get_weather(void){
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
-    esp_http_client_set_header(client, "x-api-key", "");
+    esp_http_client_set_header(client, "x-api-key", api_key);
 
     // GET
     esp_err_t err = esp_http_client_perform(client);

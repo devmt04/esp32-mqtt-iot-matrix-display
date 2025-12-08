@@ -606,4 +606,3 @@ esp_err_t init_spi(){
     
     return ESP_OK;
 }
-
