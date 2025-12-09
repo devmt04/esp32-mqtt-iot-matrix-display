@@ -71,10 +71,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                     client,      // pass MQTT client handle
                     5, &heartbeat_task_handle);
             }
-
-            // START A TASK THAT WILL CONTINOUSLY SEND ONLINE UPDATE TO WEB CLIENT
-
-
             // msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
             // ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
             break;

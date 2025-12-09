@@ -16,7 +16,6 @@
 
 #include <string.h>
 #include <ctype.h>
-// volatile bool g_new_msg = false;
 
 SemaphoreHandle_t mqtt_mutex;
 
@@ -27,13 +26,11 @@ static void init_nvs_netif(void){
       ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
     ESP_ERROR_CHECK(esp_netif_init());
-    // ESP_ERROR_CHECK(esp_event_loop_create_default());
 }
 
 static void init_ntp(void){
-    // ALSO IMPLIMENT AN EXTERNAL RTC
+    // TODO : IMPLIMENT AN EXTERNAL RTC
     esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
     setenv("TZ", "IST-5:30", 1);
     tzset();
@@ -58,13 +55,6 @@ static void init_ntp(void){
     localtime_r(&now, &timeinfo);
 
     ESP_LOGI("TIME", "The updated current time is: %s", asctime(&timeinfo));
-}
-
-
-static void fetch_msg_task(void *pvParameters){
-    while (1){
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
 }
 
 static void push_col(uint8_t buf[32], uint8_t col, int buflen){
@@ -104,8 +94,6 @@ static void push_col(uint8_t buf[32], uint8_t col, int buflen){
 
 
 static void display_msg_task(void *pvParameters){
-    // const char *msg = "ABCDFGHIJKLMNOPQRSTUVWXYZ.! ";
- 
     // if msg not overflowed -> showed it statically
         // if msg overflowed -> then
             // Algorithim 01:
@@ -132,7 +120,7 @@ static void display_msg_task(void *pvParameters){
                         // Now push blank 8x16 blank data into buf, to flush the text out
                         // continuing update buf similary
 
-    const char *msg = mqtt_msg.msg;
+    char *msg = mqtt_msg.msg;
     int msglen = strlen(msg);
     int speed = 80;                    
     uint8_t buf[32] = {0};
@@ -184,6 +172,50 @@ static void display_msg_task(void *pvParameters){
 }
 
 
+void display_time_task(void *pvParameters){
+    int hr = 0; 
+    int min = 0;
+    int sec = 0;
+
+    while(1){
+        time_t now;
+        struct tm timeinfo;
+
+        time(&now);
+        localtime_r(&now, &timeinfo);
+
+        hr   = timeinfo.tm_hour; 
+        min = timeinfo.tm_min;  
+        sec = timeinfo.tm_sec;    
+        draw_time(hr, min, sec);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void display_weather_task(void *pvParameters){
+    weather_data_t weather_data;
+    while(1){
+        weather_data = http_get_weather();
+        if(weather_data.temp != -1){
+            ESP_LOGI("HTTP","GET Temp : %d\n", weather_data.temp);
+        }else{
+            ESP_LOGE("HTTP", "Failed to get weather data");
+            continue;
+        }
+        if(weather_data.wind_speed != -1){
+            ESP_LOGI("HTTP","GET Wind Speed : %d\n", weather_data.wind_speed);
+        }else{
+            ESP_LOGE("HTTP", "Failed to get weather data");
+            continue;
+        }
+
+        if(weather_data.temp >0 && weather_data.wind_speed>=0){
+            // TODO : Handle -ve temperature
+            draw_weather(weather_data);
+        }
+        vTaskDelay(pdMS_TO_TICKS(600000)); // 10 min
+    }
+}
 
 static void engine_task(void *pvParameters){
     // init Network interface
@@ -199,56 +231,20 @@ static void engine_task(void *pvParameters){
         ESP_LOGE("MAIN", "WiFi initialization unexpectedly Failed!");
     }
     
-    int weather_counter = -1; // -1 as initial value to force first update
     ESP_LOGI("DISPLAY", "Starting display...");
-    int temp = 0;
-    int hr = 0; 
-    int min = 0;
-    int sec = 0;
     
     xTaskCreate(display_msg_task, "display_msg_task", 6144, NULL, 5, NULL);
-    // xTaskCreate(fetch_msg_task, "fetch_msg_task", 1024, NULL, 5, NULL);
     init_ntp();
+
+    xTaskCreate(display_time_task, "display_time_task", 4096, NULL, 5, NULL);
+    xTaskCreate(display_weather_task, "display_weather_task", 6144, NULL, 5, NULL);
 
     if(mqtt_init() != ESP_OK){
         ESP_LOGE("MQTT", "Failed to initilize.");
     }
 
     while(1){
-        // Update Time(HH:MM) Update every 15 seconds
-        time_t now;
-        struct tm timeinfo;
-
-        time(&now);
-        localtime_r(&now, &timeinfo);
-
-        hr   = timeinfo.tm_hour;   // eg: 13
-        min = timeinfo.tm_min;    // eg: 47
-        sec = timeinfo.tm_sec;    
-
-        //Update Weather every 10 minutes(600 seconds) - can use a timer or counter
-        if(weather_counter == -1 || weather_counter >= 40){ // 600 sec / 15 sec = 40 sec
-            // Check in case WIFI is disconnected in between
-            // Update Weather Info
-            // Make HTTP Request to get weather info in seprate TASK, then return result from it, retry if fails
-
-            temp = http_get_weather();
-            if(temp != -1){
-                ESP_LOGI("HTTP","GET Temp : %d\n", temp);
-            }else{
-                ESP_LOGE("HTTP", "Failed to get weather data");
-            }
-            weather_counter = 0;
-        }else {
-            weather_counter++;
-        }
-            
-        // Display weather and time
-        if(temp >=0){
-            draw_time_weather(temp, hr, sec);
-        }
-    
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 15000
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

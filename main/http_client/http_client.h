@@ -3,10 +3,11 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-char *init_http_client(void);
+typedef struct _weather_data_t {
+    int temp;
+    int wind_speed;
+} weather_data_t;
 
-void http_get_datetime(void);
-int http_get_weather(void);
-void http_get_class_info(void);
+weather_data_t http_get_weather(void);
 
 #endif

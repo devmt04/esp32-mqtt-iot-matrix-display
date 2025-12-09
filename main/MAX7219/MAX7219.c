@@ -8,12 +8,158 @@
 #include "soc/soc_caps.h"
 #include <string.h>
 
-#define NUM_MODULES 8  
+#define NUM_MODULES 12  
 
 #define CS_LOW()  gpio_set_level(CS_PIN, 0)
 #define CS_HIGH() gpio_set_level(CS_PIN, 1)
 
-spi_device_handle_t spi;
+
+const weather_time_font7x3_t weather_time_font7x3[] = {
+     [0] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b10100000,
+        0b10100000,
+        0b10100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [1]= {{
+        0b00000000,
+        0b01000000,
+        0b11000000,
+        0b01000000,
+        0b01000000,
+        0b01000000,
+        0b01000000,
+        0b11100000
+    }},
+
+    [2] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b00100000,
+        0b11100000,
+        0b10000000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [3] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b00100000,
+        0b01100000,
+        0b00100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [4] = {{
+        0b00000000,
+        0b10000000,
+        0b10100000,
+        0b10100000,
+        0b10100000,
+        0b11100000,
+        0b00100000,
+        0b00100000
+    }},
+
+    [5] = {{
+        0b00000000,
+        0b11100000,
+        0b10000000,
+        0b11100000,
+        0b10100000,
+        0b00100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [6] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b10000000,
+        0b11100000,
+        0b10100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [7] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000, // 1 at front here?
+        0b00100000,
+        0b00100000,
+        0b00100000,
+        0b00100000,
+        0b00100000
+    }},
+
+    [8] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b10100000,
+        0b11100000,
+        0b10100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [9] = {{
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b10100000,
+        0b11100000,
+        0b00100000,
+        0b10100000,
+        0b11100000
+    }},
+
+    [10] = {{  // Degree Symbol
+        0b11100000,
+        0b10100000,
+        0b11100000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    }},
+
+    [11] = {{ // Celsius Symbol
+        0b00000000,
+        0b11100000,
+        0b10100000,
+        0b10000000,
+        0b10000000,
+        0b10000000,
+        0b10100000,
+        0b11100000
+    }},
+    
+    [12] = {{
+        0b11100000,
+        0b10101110,
+        0b11101010,
+        0b00001000,
+        0b00001000,
+        0b00001000,
+        0b00001010,
+        0b00001110
+    }}
+
+    // Colon symbol
+};
 
 const string_font6x5_t string_font6x5[] = {
     // [0] = 'A'
@@ -337,6 +483,8 @@ const string_font6x5_t string_font6x5[] = {
     }}
 };
 
+spi_device_handle_t spi;
+
 // init CS pin
 static esp_err_t init_cs(){
     gpio_config_t io_conf = {
@@ -414,19 +562,8 @@ void max7219_set_brightness(uint8_t module, uint8_t intensity) {
 }
 
 void set_all_brightness(uint8_t intensity) {
-    for (int module = 0; module < 8; module++){
+    for (int module = 0; module < NUM_MODULES; module++){
         max7219_set_brightness(module, intensity);
-    }
-}
-
-void drawChar_8x8(int module, char c){
-    for (int i = 0; i < sizeof(font8x8)/sizeof(font8x8[0]); i++) {
-        if (font8x8[i].c == c) {
-            for (int row = 0; row < 8; row++) {
-                max7219_send(module, row+1, font8x8[i].rows[row]);
-            }
-            return;
-        }
     }
 }
 
@@ -448,24 +585,25 @@ void drawClear_all(){
     }
 }
 
-void drawPattern_8x8(int module, uint8_t pattern[8]){
-    for (int row = 0; row < 8; row++) {
-        max7219_send(module, row + 1, pattern[row]);
-    }
-}
-
 
 void draw_buffer(uint8_t buf[32]) {
+    drawClear_range(8, 11);
     for (int module = 4; module < 8; module++) {
         int start = (module - 4) * 8;
         for (int row = 0; row < 8; row++) {
-            max7219_send(module, row+1, buf[start+row]);
+            max7219_send(module+4, row+1, buf[start+row]);
         }
     }
 }
 
-
-static void draw_time(int hr0, int hr1, int min0, int min1){
+void draw_time(int hr, int min, int sec){
+    drawClear_range(4, 7);
+    int hr0 = hr / 10;
+    int hr1 = hr % 10;
+    int min0 = min / 10;
+    int min1 = min % 10;
+    int sec0 = sec / 10;
+    int sec1 = sec % 10;
     uint8_t min_pattern[8] = {
         0b00000000,
         0b00000000,
@@ -486,11 +624,30 @@ static void draw_time(int hr0, int hr1, int min0, int min1){
         0b00000000,
         0b00000000
     };
+    uint8_t sec_pattern[8] = {
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    };
 
     const uint8_t *min1_rows = weather_time_font7x3[min1].rows;
     const uint8_t *min0_rows = weather_time_font7x3[min0].rows;
     const uint8_t *hr1_rows  = weather_time_font7x3[hr1].rows;
     const uint8_t *hr0_rows  = weather_time_font7x3[hr0].rows;
+    const uint8_t *sec1_rows  = weather_time_font7x3[sec1].rows;
+    const uint8_t *sec0_rows  = weather_time_font7x3[sec0].rows;
+
+    // Build second pattern
+    for (int row = 0; row < 8; row++) {
+        uint8_t d1 = sec1_rows[row] & 0b11100000;
+        uint8_t d0 = sec0_rows[row] & 0b11100000;
+        sec_pattern[row] = (d1 >> 5) | (d0 >> 1);
+    }
 
     // Build minute pattern
     for (int row = 0; row < 8; row++) {
@@ -513,12 +670,14 @@ static void draw_time(int hr0, int hr1, int min0, int min1){
 
     // draw in 8x8
     for (int row = 0; row < 8; row++) {
-        max7219_send(3, row + 1, min_pattern[row]);
-        max7219_send(2, row + 1, hr_pattern[row]);
+        max7219_send(4, row + 1, hr_pattern[row]);
+        max7219_send(5, row + 1, min_pattern[row]);
+        max7219_send(6, row + 1, sec_pattern[row]);
     }
 }
 
-static void draw_temp(int temp){
+void draw_weather(weather_data_t weather_data){
+    drawClear_range(0, 3);
     uint8_t temp_pattern[8] = {
         0b00000000,
         0b00000000,
@@ -530,8 +689,22 @@ static void draw_temp(int temp){
         0b00000000
     };
 
-    const uint8_t *temp1_rows  = weather_time_font7x3[temp%10].rows;
-    const uint8_t *temp0_rows  = weather_time_font7x3[temp/10].rows;
+    uint8_t wind_speed_pattern[8] = {
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000,
+        0b00000000
+    };
+
+    const uint8_t *temp1_rows  = weather_time_font7x3[(weather_data.temp)%10].rows;
+    const uint8_t *temp0_rows  = weather_time_font7x3[(weather_data.temp)/10].rows;
+
+    const uint8_t *wind_speed1_rows  = weather_time_font7x3[(weather_data.wind_speed)%10].rows;
+    const uint8_t *wind_speed0_rows  = weather_time_font7x3[(weather_data.wind_speed)/10].rows;
  
     for (int row = 0; row < 8; row++) {
         uint8_t d0 = (temp0_rows[row] >> 5) & 0b111;   
@@ -539,22 +712,20 @@ static void draw_temp(int temp){
         temp_pattern[row] = (d0 << 5)  | (d1 << 1);                 
     }
 
+    for (int row = 0; row < 8; row++) {
+        uint8_t d0 = (wind_speed0_rows[row] >> 5) & 0b111;   
+        uint8_t d1 = (wind_speed1_rows[row] >> 5) & 0b111;   
+        wind_speed_pattern[row] = (d0 << 5)  | (d1 << 1);                 
+    }
+
      // draw in 8x8
     for (int row = 0; row < 8; row++) {
+        max7219_send(3, row + 1, wind_speed_pattern[row]);
         max7219_send(1, row + 1, weather_time_font7x3[12].rows[row]);
         max7219_send(0, row + 1, temp_pattern[row]);
     }
 }
 
-void draw_time_weather(int temp, int hr, int min){
-    drawClear_range(0, 3);
-    int hr_tens = hr / 10;
-    int hr_ones = hr % 10;
-    int min_tens = min / 10;
-    int min_ones = min % 10;
-    draw_time(hr_tens, hr_ones, min_tens, min_ones);
-    draw_temp(temp);
-}
 
 void draw_init(void){
     for (int row = 0; row < 8; row++) {
@@ -563,10 +734,15 @@ void draw_init(void){
         max7219_send(2, row + 1, font8x8['U' - 'A'].rows[row]);
         drawClear(3);
         
-        max7219_send(4, row + 1, font8x8['I' - 'A'].rows[row]);
-        max7219_send(5, row + 1, font8x8['N' - 'A'].rows[row]);
-        max7219_send(6, row + 1, font8x8['I' - 'A'].rows[row]);
-        max7219_send(7, row + 1, font8x8['I' - 'A'].rows[row]);
+        max7219_send(4, row + 1, font8x8['S' - 'A'].rows[row]);
+        max7219_send(5, row + 1, font8x8['Y' - 'A'].rows[row]);
+        max7219_send(6, row + 1, font8x8['S' - 'A'].rows[row]);
+        drawClear(7);
+
+        max7219_send(8, row + 1, font8x8['I' - 'A'].rows[row]);
+        max7219_send(9, row + 1, font8x8['N' - 'A'].rows[row]);
+        max7219_send(10, row + 1, font8x8['I' - 'A'].rows[row]);
+        max7219_send(11, row + 1, font8x8['I' - 'A'].rows[row]);
     }
 }
 

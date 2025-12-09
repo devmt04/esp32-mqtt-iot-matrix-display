@@ -106,11 +106,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void http_get_datetime(void){
-    // To be implemented
-}
-
-int http_get_weather(void){
+weather_data_t http_get_weather(void){
     char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
     esp_http_client_config_t config = {
         .url = "http://weather.indianapi.in/global/current?location=Jalandhar",
@@ -135,18 +131,23 @@ int http_get_weather(void){
         ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
     }
 
+    weather_data_t ret_data = {
+        .temp = -1,
+        .wind_speed = -1
+    };
+
     cJSON *root = cJSON_Parse(local_response_buffer);
     if (!root) {
         ESP_LOGE(TAG, "JSON Parse Error! Raw response: %s", local_response_buffer);
         esp_http_client_cleanup(client);
-        return -1;
+        return ret_data;
     }
 
     if (!cJSON_IsObject(root)) {
         ESP_LOGE(TAG, "JSON is not an object");
         cJSON_Delete(root);
         esp_http_client_cleanup(client);
-        return -1;
+        return ret_data;
     }
 
     cJSON *item = cJSON_GetObjectItem(root, "temperature");
@@ -154,138 +155,30 @@ int http_get_weather(void){
         ESP_LOGE(TAG, "JSON array['temperature'] is not a valid number");
         cJSON_Delete(root);
         esp_http_client_cleanup(client);
-        return -1;
+        return ret_data;
     }
 
     int temp = item->valueint;
     ESP_LOGI(TAG, "Parsed word: %d", temp);
 
+    item = cJSON_GetObjectItem(root, "wind_speed");
+    if (!item || !cJSON_IsNumber(item)) {
+        ESP_LOGE(TAG, "JSON array['wind_speed'] is not a valid number");
+        cJSON_Delete(root);
+        esp_http_client_cleanup(client);
+        return ret_data;
+    }
+
+    int wind_speed = item->valueint;
+
     // Free JSON tree and client
     cJSON_Delete(root);
     esp_http_client_cleanup(client);
 
-    return temp;
+    ret_data.temp = temp;
+    ret_data.wind_speed = wind_speed;
+    return ret_data;
 }
-
-void http_get_class_info(void){
-    // To be implemented
-}
-
-static char *http_rest_task(void *pvParameters){    
-    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
-    esp_http_client_config_t config = {
-        // .host = CONFIG_EXAMPLE_HTTP_ENDPOINT,
-        // .path = "/get",
-        // .query = "esp",
-        .url = "http://random-word-api.herokuapp.com/word?number=1&length=4",
-        .event_handler = _http_event_handler,
-        .user_data = local_response_buffer,   // Pass address of local buffer to get response
-                                              // or pass the global buffer pointer
-        .disable_auto_redirect = true,
-        // .skip_cert_common_name_check = true,
-    };
-
-    ESP_LOGI(TAG, "HTTP request with url =>");
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-
-
-    // GET
-    esp_err_t err = esp_http_client_perform(client);
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %"PRId64,
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-    } else {
-        ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
-    }
-    ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
-
-
-    // Parse JSON: expected format is ["abcd"]
-    cJSON *root = cJSON_Parse(local_response_buffer);
-    if (!root) {
-        ESP_LOGE(TAG, "JSON Parse Error! Raw response: %s", local_response_buffer);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-
-    if (!cJSON_IsArray(root)) {
-        ESP_LOGE(TAG, "JSON is not an array");
-        cJSON_Delete(root);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-
-    cJSON *item = cJSON_GetArrayItem(root, 0);
-    if (!item || !cJSON_IsString(item) || item->valuestring == NULL) {
-        ESP_LOGE(TAG, "JSON array[0] is not a valid string");
-        cJSON_Delete(root);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-
-    const char *word = item->valuestring;
-    ESP_LOGI(TAG, "Parsed word: %s", word);
-
-    // Make sure it is at least 1 char; we'll copy up to 4
-    size_t word_len = strlen(word);
-    if (word_len == 0) {
-        ESP_LOGE(TAG, "Empty word received");
-        cJSON_Delete(root);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-
-    // Allocate 5 bytes: 4 chars + '\0'
-    char *d = (char *)malloc(5);
-    if (!d) {
-        ESP_LOGE(TAG, "Failed to allocate memory for word copy");
-        cJSON_Delete(root);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-
-    // Copy up to 4 characters and null-terminate
-    // If word is shorter, remaining bytes stay as they were (we'll clear them)
-    memset(d, 0, 5);
-    strncpy(d, word, 4);  // strncpy will stop at '\0' if word < 4 chars
-    d[4] = '\0';          // ensure termination
-
-    // Now it's safe to free the JSON tree and client
-    cJSON_Delete(root);
-    esp_http_client_cleanup(client);
-
-    return d;  // caller must free(d)
-
-    /*
-    cJSON *root = cJSON_Parse(local_response_buffer);
-    if (!root) {
-        printf("JSON Parse Error! Raw response: %s\n", local_response_buffer);
-        esp_http_client_cleanup(client);
-        // vTaskDelete(NULL);
-        // return;
-    }
-    cJSON *origin = cJSON_GetObjectItem(root, "0");
-
-    if (cJSON_IsString(origin))
-        printf("data: %s\n", origin->valuestring);
-
-    cJSON_Delete(root);
-    esp_http_client_cleanup(client);
-    char *d = (char *)malloc(5 * sizeof(char));
-    memcpy(d, origin->valuestring, 4);
-    return d;
-    */
-    // vTaskDelete(NULL);
-}
-
-char *init_http_client(void){
-    // xTaskCreate(&http_rest_task, "http_rest_task", 8192, NULL, 5, NULL);
-    return http_rest_task(NULL);
-    // return ESP_OK;
-}
-
 
 // ADD RETRY AND TIMEOUT MECHANISM
 // ADD HTTPS SUPPORT
